@@ -25,6 +25,17 @@ app.get('/status', (req, res) => {
 io.on('connection', (socket) => {
     console.log(Client connected: );
 
+    // On each incoming 'draw' socket event: enqueue the event data
+    socket.on('draw', (data) => {
+        queue.enqueue({ socket, data });
+    });
+
+    // On incoming 'undo' socket event: broadcast immediately to all other clients
+    socket.on('undo', (data) => {
+        // Broadcasts directly bypassing the queue
+        socket.broadcast.emit('undo', data);
+    });
+
     socket.on('disconnect', () => {
         console.log(Client disconnected: );
     });
