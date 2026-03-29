@@ -13,25 +13,35 @@ A **Queue** is a linear data structure that follows the **First-In-First-Out (FI
 ### Why it is the correct choice
 In a real-time collaborative system, multiple users are sending drawing events (mouse moves, clicks) concurrently to the server. To maintain exact consistency across all clients, the server must process and broadcast these events in the **exact chronological order** they arrived. A Queue guarantees that an older event is always broadcast before a newer one, preserving the natural continuous flow of a drawn line.
 
-### Internal Structure (ASCII Diagram)
-```text
-      Incoming Drawing Events from Clients
-                 |  |  |
-                 v  v  v
-             +---+--+--+---+
-Rear/Tail -> | E | D | C |   <-- (Just arrived)
-             +---+--+--+---+
-             | B           |
-             +-------------+
-             | A           |   <-- (Front/Head - oldest event)
-             +-------------+
-                 |   |
-                 v   v
-             Processed and Broadcasted across WebSockets
+### Internal Structure (Mermaid Diagram)
+
+```mermaid
+graph LR
+    subgraph Incoming ["Concurrent Client Actions"]
+        C1(Client User A)
+        C2(Client User B)
+        C3(Client User C)
+    end
+
+    subgraph EventQueue ["EventQueue (FIFO) Node.js"]
+        direction LR
+        Rear[Rear] --> E3[Event C<br/>Just Arrived] --> E2[Event B] --> E1[Event A<br/>Oldest] --> Front[Front]
+    end
+
+    Incoming -->|Socket 'draw_stroke'| Rear
+    Front -->|Dequeue & Broadcast| WebSockets((WebSockets))
+    WebSockets -->|'receive_stroke'| C1
+    WebSockets -->|'receive_stroke'| C2
+    WebSockets -->|'receive_stroke'| C3
+
+    style EventQueue fill:#1f2937,stroke:#3b82f6,stroke-width:2px,color:#fff
+    style Rear fill:#374151,stroke:#6b7280,color:#fff,stroke-dasharray: 5 5
+    style Front fill:#374151,stroke:#6b7280,color:#fff,stroke-dasharray: 5 5
 ```
 
 ### Required Operations & Time Complexities
-*Note: For optimal O(1) performance in JS, this is typically implemented using a Linked List or a circular array, rather than `Array.shift()` which is O(N).*
+> [!NOTE]  
+> For optimal O(1) performance in JS, this is typically implemented using a Linked List or a circular array, rather than `Array.shift()` which is O(N).
 
 | Operation | Description | Time Complexity |
 |-----------|-------------|-----------------|
@@ -41,7 +51,8 @@ Rear/Tail -> | E | D | C |   <-- (Just arrived)
 | `isEmpty()` | Checks if there are pending events | **O(1)** |
 
 ### What would go wrong if we used the wrong data structure?
-If we used a **Stack (LIFO)** instead of a Queue, the server would broadcast the *most recently* received event first. If a user quickly drew a line from point A to B to C, the events might arrive as A, B, C but be processed as C, B, A. Every user would see the line drawing itself backwards, creating chaotic and disconnected strokes on the canvas!
+> [!CAUTION]  
+> If we used a **Stack (LIFO)** instead of a Queue, the server would broadcast the *most recently* received event first. If a user quickly drew a line from point A to B to C, the events might arrive as A, B, C but be processed as C, B, A. Every user would see the line drawing itself backwards, creating chaotic and disconnected strokes on the canvas!
 
 ---
 
@@ -53,25 +64,35 @@ A **Stack** is a linear data structure that follows the **Last-In-First-Out (LIF
 ### Why it is the correct choice
 When a user presses "Undo" (`Ctrl+Z`), they expect to erase the very **last** thing they just drew. A Stack structurally enforces chronological rollback. Every time a user completes a stroke, it is pushed onto the top of the Stack. When they undo, we simply pop the top stroke off and revert the canvas to the state below it.
 
-### Internal Structure (ASCII Diagram)
-```text
-            (Push / Pop happens ONLY at the top)
-                            ^   |
-                      Pop() |   | Push()
-                            |   v
-                      +---------------+
-            Top ----> | Stroke 4      |  <-- Most recent action
-                      +---------------+
-                      | Stroke 3      |
-                      +---------------+
-                      | Stroke 2      |
-                      +---------------+
-         Bottom ----> | Stroke 1      |  <-- Oldest action
-                      +---------------+
+### Internal Structure (Mermaid Diagram)
+
+```mermaid
+graph BT
+    subgraph ClientCanvas ["User Screen"]
+        DrawAction(("New Draw Action"))
+        UndoAction(("Undo (Ctrl+Z)"))
+    end
+
+    subgraph UndoStack ["UndoStack (LIFO) React State"]
+        direction BT
+        Bottom["(Bottom Level)"] --> S1[Stroke 1<br/>Oldest] 
+        S1 --> S2[Stroke 2] 
+        S2 --> S3[Stroke 3] 
+        S3 --> S4[Stroke 4<br/>Top Element]
+        S4 --> Top["(Top Level)"]
+    end
+
+    DrawAction -->|Push()| Top
+    Top -->|Pop()| UndoAction
+
+    style UndoStack fill:#1f2937,stroke:#10b981,stroke-width:2px,color:#fff
+    style Bottom fill:#374151,stroke:#6b7280,color:#fff,stroke-dasharray: 5 5
+    style Top fill:#374151,stroke:#6b7280,color:#fff,stroke-dasharray: 5 5
 ```
 
 ### Required Operations & Time Complexities
-*Note: This is trivial to implement in JavaScript using native arrays, as `push()` and `pop()` are naturally optimized for this exact use case.*
+> [!NOTE]  
+> This is trivial to implement in JavaScript using native arrays, as `push()` and `pop()` are naturally optimized for this exact use case.
 
 | Operation | Description | Time Complexity |
 |-----------|-------------|-----------------|
@@ -81,4 +102,5 @@ When a user presses "Undo" (`Ctrl+Z`), they expect to erase the very **last** th
 | `isEmpty()` | Checks if undo state is empty (disables the Undo button) | **O(1)** |
 
 ### What would go wrong if we used the wrong data structure?
-If we used a **Queue (FIFO)** instead of a Stack for history, pressing `Ctrl+Z` would delete the very **first thing** you ever drew on the canvas! If you spent an hour drawing a masterpiece and made one tiny mistake at the end, pressing Undo would suddenly wipe out the foundational sketch you did 60 minutes ago, while the mistake remained untouched.
+> [!CAUTION]  
+> If we used a **Queue (FIFO)** instead of a Stack for history, pressing `Ctrl+Z` would delete the very **first thing** you ever drew on the canvas! If you spent an hour drawing a masterpiece and made one tiny mistake at the end, pressing Undo would suddenly wipe out the foundational sketch you did 60 minutes ago, while the mistake remained untouched.
