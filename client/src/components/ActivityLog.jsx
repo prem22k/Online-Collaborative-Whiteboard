@@ -17,12 +17,12 @@ const styles = {
     outline: 'none',
   },
   logBox: {
-    flex: 1,
     border: '1px solid #000',
     backgroundColor: '#fff',
     overflowY: 'auto',
     padding: '8px',
     height: '560px',
+    maxHeight: '560px',
   },
   entry: {
     fontSize: '13px',
@@ -44,7 +44,7 @@ export default function ActivityLog({ username, onUsernameChange, activityLog })
   const logEndRef = useRef(null);
 
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    logEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [activityLog]);
 
   return (
