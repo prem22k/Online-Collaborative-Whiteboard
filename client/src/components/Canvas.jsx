@@ -1,228 +1,242 @@
-import React, { useRef, useState, useImperativeHandle, forwardRef } from 'react';
-import UndoStack from './undoStack';
+import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import UndoStack from '../utils/UndoStack';
+
+const styles = {
+  container: {
+    fontFamily: 'sans-serif',
+    padding: '20px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center'
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    width: '1000px',
+    marginBottom: '10px',
+    fontSize: '14px',
+    color: '#333'
+  },
+  canvas: {
+    border: '1px solid #000',
+    cursor: 'crosshair',
+    backgroundColor: '#fff'
+  },
+  controls: {
+    marginTop: '10px',
+    display: 'flex',
+    width: '1000px',
+    gap: '10px'
+  },
+  button: {
+    padding: '6px 12px',
+    fontFamily: 'sans-serif',
+    fontSize: '14px',
+    border: '1px solid #666',
+    backgroundColor: '#eee',
+    cursor: 'pointer'
+  }
+};
 
 const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, ref) => {
-  // useRef for the canvas element
   const canvasRef = useRef(null);
-  // useRef for the UndoStack instance
-  const undoStackRef = useRef(new UndoStack());
-  // useRef for current stroke points array
-  const currentStrokeRef = useRef([]);
-  // useRef for all completed strokes array (for full redraw)
-  const allStrokesRef = useRef([]);
+  const contextRef = useRef(null);
+  
+  // State Refs for drawing loop
+  const isDrawing = useRef(false);
+  const currentStrokeId = useRef(null);
+  
+  // Data Structures
+  const undoStack = useRef(new UndoStack());     // Local history
+  const allStrokes = useRef([]);                 // Global history (both local and remote)
 
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [color, setColor] = useState('#000000');
-  const [brushSize, setBrushSize] = useState(5);
+  // Initialization
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    canvas.width = 1000 * 2; // Support high-DPI screens
+    canvas.height = 600 * 2;
+    canvas.style.width = '1000px';
+    canvas.style.height = '600px';
 
-  // Expose methods to the parent via useImperativeHandle
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#3b82f6'; // Bright blue default
+    ctx.lineWidth = 4;
+    contextRef.current = ctx;
+  }, []);
+
+  // Expose receiving methods to App.jsx
   useImperativeHandle(ref, () => ({
-    // handle incoming remote strokes
-    drawRemoteStroke: (strokeData) => {
-      allStrokesRef.current.push(strokeData);
-      undoStackRef.current.push(strokeData);
+    drawRemoteStroke: (data) => {
+      // 1. Physically draw line
+      drawLineSegment(data.startX, data.startY, data.endX, data.endY, data.color, data.width);
       
-      redrawCanvas();
-      
-      // optionally update parent's stack size count if keeping in sync
-      if (onStackSizeChange) {
-        onStackSizeChange(undoStackRef.current.size());
-      }
+      // 2. Add to global history
+      allStrokes.current.push({ ...data, isRemote: true });
     },
-    undoRemoteStroke: () => {
-      undoStackRef.current.pop();
-      allStrokesRef.current.pop();
-      redrawCanvas();
-      if (onStackSizeChange) {
-        onStackSizeChange(undoStackRef.current.size());
+    triggerRemoteUndo: (undoData) => {
+      // Remove the last stroke that belongs to the user who requested undo
+      const strokes = allStrokes.current;
+      for (let i = strokes.length - 1; i >= 0; i--) {
+        if (strokes[i].userId === undoData.userId) {
+          strokes.splice(i, 1);
+          redrawAllStrokes();
+          break;
+        }
       }
     }
   }));
 
-  const getCoordinates = (e) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    };
-  };
-
-  const drawLine = (p1, p2, strokeColor, lineWidth) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = lineWidth;
+  // Helper physically draws a line segment on Context
+  const drawLineSegment = (x1, y1, x2, y2, color = '#3b82f6', width = 4) => {
+    const ctx = contextRef.current;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
     ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
     ctx.stroke();
+    ctx.closePath();
   };
 
-  // Mouse event handlers
-  const onMouseDown = (e) => {
-    // start stroke, set isDrawing flag
-    setIsDrawing(true);
-    const pos = getCoordinates(e);
-    currentStrokeRef.current = [{ ...pos }];
-  };
-
-  const onMouseMove = (e) => {
-    // draw live if isDrawing
-    if (!isDrawing) return;
-    const pos = getCoordinates(e);
-    const currentPoints = currentStrokeRef.current;
-    const lastPos = currentPoints[currentPoints.length - 1];
-    
-    drawLine(lastPos, pos, color, brushSize);
-    currentPoints.push({ ...pos });
-  };
-
-  const onMouseUp = () => {
-    // finish stroke
-    if (!isDrawing) return;
-    setIsDrawing(false);
-    
-    // Ensure we actually drew something
-    if (currentStrokeRef.current.length > 1) {
-      const strokeData = {
-        points: currentStrokeRef.current,
-        color: color,
-        brushSize: brushSize
-      };
-
-      // push to UndoStack
-      undoStackRef.current.push(strokeData);
-      // add to allStrokes
-      allStrokesRef.current.push(strokeData);
-
-      // emit 'draw' event via socket prop
-      if (socket) {
-        socket.emit('draw', strokeData);
-      }
-
-      // call onStackSizeChange prop with new size
-      if (onStackSizeChange) {
-        onStackSizeChange(undoStackRef.current.size());
-      }
-    }
-    
-    // clear current stroke buffer
-    currentStrokeRef.current = [];
-  };
-
-  // A redrawCanvas() function that clears canvas and replays all strokes in allStrokes array
-  const redrawCanvas = () => {
+  // Helper physically clears screen and redraws global tracking array
+  const redrawAllStrokes = () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    // clear canvas
+    const ctx = contextRef.current;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // replay all strokes
-    allStrokesRef.current.forEach((stroke) => {
-      if (stroke.points && stroke.points.length > 1) {
-        for (let i = 1; i < stroke.points.length; i++) {
-          drawLine(
-            stroke.points[i - 1], 
-            stroke.points[i], 
-            stroke.color, 
-            stroke.brushSize
-          );
-        }
-      }
+
+    allStrokes.current.forEach(stroke => {
+      drawLineSegment(stroke.startX, stroke.startY, stroke.endX, stroke.endY, stroke.color, stroke.width);
     });
   };
 
-  const handleUndo = () => {
-    // Undo button: pop from UndoStack, remove last item from allStrokes
-    const popped = undoStackRef.current.pop();
-    if (popped) {
-      // Actually pop from the end of allStrokes. 
-      // (Assuming UndoStack tracks everything chronologically with allStrokes)
-      allStrokesRef.current.pop();
-      
-      // call redrawCanvas()
-      redrawCanvas();
-      
-      // emit 'undo' via socket
-      if (socket) {
-        socket.emit('undo');
-      }
+  // --- HTML5 Mouse Event Listeners ---
 
-      // call onStackSizeChange
-      if (onStackSizeChange) {
-        onStackSizeChange(undoStackRef.current.size());
-      }
-    }
+  const startDrawing = ({ nativeEvent }) => {
+    const { offsetX, offsetY } = nativeEvent;
+    
+    contextRef.current.beginPath();
+    contextRef.current.moveTo(offsetX, offsetY);
+    isDrawing.current = true;
+    
+    // Generate a unique ID for this stroke group
+    currentStrokeId.current = Date.now() + Math.random().toString(36).substring(7);
   };
 
+  const draw = ({ nativeEvent }) => {
+    if (!isDrawing.current) return;
+    
+    const { offsetX, offsetY } = nativeEvent;
+    // We need the previous position to create a segment line
+    const lastX = contextRef.current.lastX || offsetX;
+    const lastY = contextRef.current.lastY || offsetY;
+
+    // Draw Locally
+    drawLineSegment(lastX, lastY, offsetX, offsetY, '#3b82f6', 4);
+
+    // Package the segment
+    const strokeData = {
+      strokeId: currentStrokeId.current,
+      userId: socket?.id || 'local',
+      startX: lastX,
+      startY: lastY,
+      endX: offsetX,
+      endY: offsetY,
+      color: '#3b82f6',
+      width: 4
+    };
+
+    // Save to global tracking and emit
+    allStrokes.current.push(strokeData);
+    if (socket) socket.emit('draw', strokeData);
+
+    contextRef.current.lastX = offsetX;
+    contextRef.current.lastY = offsetY;
+  };
+
+  const finishDrawing = () => {
+    contextRef.current.closePath();
+    if (isDrawing.current) {
+      // Mark stroke as completed and push ID to local LIFO stack
+      undoStack.current.push(currentStrokeId.current);
+      onStackSizeChange(undoStack.current.size()); // Update Dashboard UI
+    }
+    isDrawing.current = false;
+    contextRef.current.lastX = null;
+    contextRef.current.lastY = null;
+  };
+
+  const handleUndo = () => {
+    if (undoStack.current.isEmpty()) return;
+
+    // 1. Pop LIFO UndoStack (getting the Stroke ID to remove)
+    const targetStrokeId = undoStack.current.pop();
+    onStackSizeChange(undoStack.current.size());
+
+    // 2. Remove all segments of that stroke from the global tracking array
+    allStrokes.current = allStrokes.current.filter(
+      stroke => stroke.strokeId !== targetStrokeId
+    );
+
+    // 3. Clear and render Canvas with updated tracking array
+    redrawAllStrokes();
+
+    // 4. Broadcast the Undo operation
+    if (socket) socket.emit('undo', { userId: socket.id, targetStrokeId });
+  };
+
+  // Listen for Ctrl+Z globally
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'sans-serif', gap: '20px', padding: '20px' }}>
+    <div style={styles.container}>
       
-      {/* DSA Dashboard div */}
-      <div style={{
-        display: 'flex', gap: '40px', padding: '15px 30px', backgroundColor: '#1e272e', 
-        color: '#d2dae2', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold'
-      }}>
-        <div>DSA Dashboard</div>
-        <div>EventQueue Size: {queueSize ?? 0}</div>
-        <div>UndoStack Size: {stackSize ?? 0}</div>
+      <div style={styles.header}>
+        <div>Queue (FIFO) length: {queueSize}</div>
+        <div>Undo Stack (LIFO) length: {stackSize}</div>
       </div>
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'center', alignSelf: 'stretch', justifyContent: 'center' }}>
-        <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          Color:
-          <input 
-            type="color" 
-            value={color} 
-            onChange={(e) => setColor(e.target.value)} 
-            style={{ cursor: 'pointer', padding: '0', border: 'none', background: 'transparent' }}
-          />
-        </label>
-        
-        <label style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          Brush Size ({brushSize}px):
-          <input 
-            type="range" 
-            min="1" 
-            max="30" 
-            value={brushSize} 
-            onChange={(e) => setBrushSize(parseInt(e.target.value))} 
-            style={{ cursor: 'pointer' }}
-          />
-        </label>
+      <canvas
+        style={styles.canvas}
+        ref={canvasRef}
+        onMouseDown={startDrawing}
+        onMouseMove={draw}
+        onMouseUp={finishDrawing}
+        onMouseLeave={finishDrawing}
+      />
 
+      <div style={styles.controls}>
         <button 
-          onClick={handleUndo}
-          style={{
-            padding: '10px 16px', backgroundColor: '#e74c3c', color: 'white', 
-            border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
+          style={styles.button} 
+          onClick={handleUndo} 
+          disabled={stackSize === 0}
+        >
+          Undo (Ctrl+Z)
+        </button>
+        <button 
+          style={styles.button} 
+          onClick={() => {
+            allStrokes.current = [];
+            undoStack.current = new UndoStack();
+            onStackSizeChange(0);
+            redrawAllStrokes();
           }}
         >
-          Undo
+          Clear Board
         </button>
       </div>
 
-      <canvas 
-        ref={canvasRef}
-        width={800}
-        height={600}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp} // Also fire mouse up when leaving the canvas bounds
-        style={{
-          border: '1px solid #bdc3c7', borderRadius: '4px', cursor: 'crosshair',
-          backgroundColor: '#fff', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-        }}
-      />
     </div>
   );
 });
