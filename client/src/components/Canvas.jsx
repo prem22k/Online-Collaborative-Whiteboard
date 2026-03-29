@@ -77,15 +77,11 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, 
       allStrokes.current.push({ ...data, isRemote: true });
     },
     triggerRemoteUndo: (undoData) => {
-      // Remove the last stroke that belongs to the user who requested undo
-      const strokes = allStrokes.current;
-      for (let i = strokes.length - 1; i >= 0; i--) {
-        if (strokes[i].userId === undoData.userId) {
-          strokes.splice(i, 1);
-          redrawAllStrokes();
-          break;
-        }
-      }
+      // Remove ALL segments of the specific stroke that was undone
+      allStrokes.current = allStrokes.current.filter(
+        stroke => stroke.strokeId !== undoData.targetStrokeId
+      );
+      redrawAllStrokes();
     }
   }));
 
