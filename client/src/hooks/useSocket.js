@@ -12,8 +12,8 @@ export default function useSocket(canvasRef) {
       canvasRef.current?.drawRemoteStroke(data);
     });
 
-    socketRef.current.on('undo', () => {
-      canvasRef.current?.triggerRemoteUndo();
+    socketRef.current.on('undo', (data) => {
+      canvasRef.current?.triggerRemoteUndo(data);
     });
 
     return () => {
