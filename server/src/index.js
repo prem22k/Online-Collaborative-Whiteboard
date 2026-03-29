@@ -6,11 +6,10 @@ const EventQueue = require('./utils/EventQueue.js');
 const app = express();
 const server = http.createServer(app);
 
-// Express + Socket.io setup with CORS enabled for http://localhost:3000
+// Express + Socket.io setup with CORS dynamically mapping to frontend URL
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:3000",
-
+        origin: process.env.CLIENT_URL || "http://localhost:3000",
         methods: ["GET", "POST"]
     }
 });
