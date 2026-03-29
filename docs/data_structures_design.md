@@ -69,8 +69,8 @@ When a user presses "Undo" (`Ctrl+Z`), they expect to erase the very **last** th
 ```mermaid
 graph BT
     subgraph ClientCanvas ["User Screen"]
-        DrawAction(("New Draw Action"))
-        UndoAction(("Undo (Ctrl+Z)"))
+        DrawAction("New Draw Action")
+        UndoAction("Undo / Ctrl+Z")
     end
 
     subgraph UndoStack ["UndoStack (LIFO) React State"]
@@ -82,8 +82,8 @@ graph BT
         S4 --> Top["(Top Level)"]
     end
 
-    DrawAction -->|Push()| Top
-    Top -->|Pop()| UndoAction
+    DrawAction -->|Push action| Top
+    Top -->|Pop action| UndoAction
 
     style UndoStack fill:#1f2937,stroke:#10b981,stroke-width:2px,color:#fff
     style Bottom fill:#374151,stroke:#6b7280,color:#fff,stroke-dasharray: 5 5
