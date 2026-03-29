@@ -49,6 +49,16 @@ io.on('connection', (socket) => {
         socket.broadcast.emit('undo', data);
     });
 
+    // On incoming 'clear' socket event: broadcast to all other clients
+    socket.on('clear', () => {
+        socket.broadcast.emit('clear');
+    });
+
+    // On incoming 'activity' socket event: broadcast to all other clients
+    socket.on('activity', (data) => {
+        socket.broadcast.emit('activity', data);
+    });
+
     socket.on('disconnect', () => {
         console.log(`Client disconnected: ${socket.id}`);
     });

@@ -38,7 +38,7 @@ const styles = {
   }
 };
 
-const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, ref) => {
+const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, username, addLogEntry }, ref) => {
   const canvasRef = useRef(null);
   const contextRef = useRef(null);
   
@@ -82,6 +82,12 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, 
         stroke => stroke.strokeId !== undoData.targetStrokeId
       );
       redrawAllStrokes();
+    },
+    triggerRemoteClear: () => {
+      allStrokes.current = [];
+      undoStack.current = new UndoStack();
+      onStackSizeChange(0);
+      redrawAllStrokes();
     }
   }));
 
@@ -112,11 +118,11 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, 
 
   const startDrawing = ({ nativeEvent }) => {
     const { offsetX, offsetY } = nativeEvent;
-    
+
     contextRef.current.beginPath();
     contextRef.current.moveTo(offsetX, offsetY);
     isDrawing.current = true;
-    
+
     // Generate a unique ID for this stroke group
     currentStrokeId.current = Date.now() + Math.random().toString(36).substring(7);
   };
@@ -158,6 +164,7 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, 
       // Mark stroke as completed and push ID to local LIFO stack
       undoStack.current.push(currentStrokeId.current);
       onStackSizeChange(undoStack.current.size()); // Update Dashboard UI
+      if (addLogEntry) addLogEntry({ user: username || 'Anonymous', action: 'drew a stroke' });
     }
     isDrawing.current = false;
     contextRef.current.lastX = null;
@@ -181,6 +188,7 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, 
 
     // 4. Broadcast the Undo operation
     if (socket) socket.emit('undo', { userId: socket.id, targetStrokeId });
+    if (addLogEntry) addLogEntry({ user: username || 'Anonymous', action: 'performed undo' });
   };
 
   // Listen for Ctrl+Z globally
@@ -220,13 +228,15 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange }, 
         >
           Undo (Ctrl+Z)
         </button>
-        <button 
-          style={styles.button} 
+        <button
+          style={styles.button}
           onClick={() => {
             allStrokes.current = [];
             undoStack.current = new UndoStack();
             onStackSizeChange(0);
             redrawAllStrokes();
+            if (socket) socket.emit('clear');
+            if (addLogEntry) addLogEntry({ user: username || 'Anonymous', action: 'cleared the board' });
           }}
         >
           Clear Board

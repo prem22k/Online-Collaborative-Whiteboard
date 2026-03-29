@@ -1,27 +1,33 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { SERVER_URL } from '../utils/constants';
 
 export default function useSocket(canvasRef) {
-  const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    socketRef.current = io(SERVER_URL);
+    const socketInstance = io(SERVER_URL);
+    setSocket(socketInstance);
 
-    socketRef.current.on('draw', (data) => {
+    socketInstance.on('draw', (data) => {
       canvasRef.current?.drawRemoteStroke(data);
     });
 
-    socketRef.current.on('undo', (data) => {
+    socketInstance.on('undo', (data) => {
       canvasRef.current?.triggerRemoteUndo(data);
     });
 
+    socketInstance.on('clear', () => {
+      canvasRef.current?.triggerRemoteClear();
+    });
+
     return () => {
-      socketRef.current.off('draw');
-      socketRef.current.off('undo');
-      socketRef.current.disconnect();
+      socketInstance.off('draw');
+      socketInstance.off('undo');
+      socketInstance.off('clear');
+      socketInstance.disconnect();
     };
   }, []);
 
-  return socketRef;
+  return socket;
 }
