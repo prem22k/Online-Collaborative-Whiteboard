@@ -23,7 +23,7 @@ app.get('/status', (req, res) => {
 });
 
 io.on('connection', (socket) => {
-    console.log(Client connected: );
+    console.log(`Client connected: ${socket.id}`);
 
     // On each incoming 'draw' socket event: enqueue the event data
     socket.on('draw', (data) => {
@@ -45,7 +45,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log(Client disconnected: );
+        console.log(`Client disconnected: ${socket.id}`);
     });
 });
 
@@ -59,7 +59,7 @@ io.on('connection', (socket) => {
  * spamming network packets.
  * 
  * Simulating an Event Processor
- * The setInterval acts as our background event processing loop. Moving broadcast 
+ * The `setInterval` acts as our background event processing loop. Moving broadcast 
  * dispatches into a fixed-interval worker ensures predictable, controlled execution 
  * CPU time. Instead of executing immediately when a message arrives, we process 
  * tasks from the queue continuously. This guarantees steady processing pacing,
@@ -80,5 +80,5 @@ setInterval(() => {
 // Start server
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
-    console.log(Server listening on port );
+    console.log(`Server listening on port ${PORT}`);
 });
