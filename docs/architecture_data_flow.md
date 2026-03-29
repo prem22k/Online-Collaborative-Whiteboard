@@ -11,16 +11,19 @@ This document outlines the complete end-to-end data flow for the core interactio
 
 When **User A** presses their mouse and moves it across the canvas, a sequence of coordinate points is generated.
 
-```text
-[ User A's Browser ]
-       |
-       | 1. capture (x, y) move events
-       | 2. render stroke locally on Canvas
-       | 3. bundle into 'draw_event' object
-       v
-  Socket.io Emit
-  eventName: "draw_stroke"
-  payload: { startX, startY, endX, endY, color, width, roomId }
+```mermaid
+sequenceDiagram
+    participant A as User A's Browser
+    participant S as Socket.io Server (Node.js)
+
+    Note over A: 1. Listen for onMouseMove
+    A->>A: 2. Capture (x, y) coordinates
+    A->>A: 3. Render stroke locally on Canvas
+    
+    rect rgb(30, 41, 59)
+    A->>S: 4. Emit "draw_stroke" event
+    Note right of A: Payload: { startX, startY, endX, endY, color, width, roomId }
+    end
 ```
 
 ---
@@ -29,27 +32,27 @@ When **User A** presses their mouse and moves it across the canvas, a sequence o
 
 The Node.js backend receives concurrent drawing events from all users. To guarantee that every user's screen looks exactly the same, the server acts as the single source of truth and enforces a strict chronological order.
 
-```text
-[ Node.js Server / Backend ]
-       |
-       | 1. Socket receives "draw_stroke" from User A
-       v
-+-------------------------------------------------------+
-|                 EventQueue (FIFO)                     |
-|                                                       |
-|  [Rear] <-- Event C <-- Event B <-- Event A <-- [Front|
-|                                                       |
-+-------------------------------------------------------+
-       |
-       | 2. Event is enqueued at the rear.
-       | 3. The queue processing loop dequeues from the front.
-       v
-  Socket.io Broadcast
-  eventName: "receive_stroke"
-  room: User A's current roomId
+```mermaid
+sequenceDiagram
+    participant Clients as Active Users
+    participant S as Server
+    participant Q as EventQueue (FIFO)
+
+    Clients->>S: Emit "draw_stroke"
+    S->>Q: Enqueue Event (Rear)
+    Note right of Q: [A, B, C] -> wait for loop
+    
+    rect rgb(30, 41, 59)
+    S->>Q: Process Loop (Dequeue Front)
+    Q-->>S: Returns oldest Event
+    S->>Clients: Broadcast "receive_stroke"
+    end
+    
+    Note over S: Event garbage collected from memory
 ```
 
-*Note: The server stores the event temporarily in the queue just long enough to process it. Once broadcasted, the server removes it from the queue, preventing memory leaks.*
+> [!NOTE]  
+> The server stores the event temporarily in the queue just long enough to process it. Once broadcasted, the server removes it from the queue, preventing memory leaks.
 
 ---
 
@@ -57,21 +60,21 @@ The Node.js backend receives concurrent drawing events from all users. To guaran
 
 Meanwhile, **User B** sits in the same room. Their client listens for incoming socket events broadcasted by the server.
 
-```text
-[ User B's Browser ]
-       |
-       | 1. Socket listens for "receive_stroke"
-       | 2. Extracts coordinates, color, and size
-       v
-+-------------------------------+
-|    React Whiteboard Canvas    |
-|                               |
-| Context.lineTo(endX, endY)    |  <-- Render engine physically draws
-| Context.stroke()              |      User A's stroke onto User B's screen
-+-------------------------------+
-       |
-       | 3. User B's screen instantly reflects User A's actions 
-       v
+```mermaid
+sequenceDiagram
+    participant S as Socket.io Server
+    participant B as User B's Browser
+    participant C as HTML5 Canvas
+
+    S->>B: Broadcast "receive_stroke"
+    B->>B: 1. Extract coordinates & style
+    
+    rect rgb(30, 41, 59)
+    B->>C: 2. context.lineTo(endX, endY)
+    B->>C: 3. context.stroke()
+    end
+    
+    Note over C: Screen natively updates to show User A's line
 ```
 
 ---
@@ -80,27 +83,29 @@ Meanwhile, **User B** sits in the same room. Their client listens for incoming s
 
 What happens when **User A** makes a mistake and clicks `Undo`? We rely on our **LIFO Stack**.
 
-```text
-[ User A clicks "Undo" button ]
-       |
-       | 1. check if UndoStack.isEmpty() is false
-       | 2. let strokeToUndo = UndoStack.pop()
-       | 3. clear entire local Canvas
-       | 4. redraw all remaining strokes from UndoStack (bottom to top)
-       v
-  Socket.io Emit
-  eventName: "undo_action"
-  payload: { userId, roomId }
-       |
-       |  Server receives "undo_action"
-       |  Broadcasts to room: User B, User C
-       v
-[ User B & C Receive "undo_action" ]
-       |
-       | 1. Find User A's last stroke in global history
-       | 2. Remove it
-       | 3. Clear Canvas & Redraw remaining strokes
-       v
+```mermaid
+sequenceDiagram
+    participant A as User A
+    participant Stack as UndoStack (LIFO)
+    participant C as User A Canvas
+    participant S as Node.js Server
+    participant B as User B & C
+
+    A->>A: Clicks "Undo"
+    A->>Stack: Check isEmpty()
+    Stack-->>A: false (has items)
+    
+    A->>Stack: UndoStack.pop()
+    Stack-->>A: Popped User A's Stroke
+    
+    A->>C: Clear Canvas
+    A->>C: Redraw remaining stack contents
+    
+    rect rgb(30, 41, 59)
+    A->>S: Emit "undo_action"<br/>{ userId, roomId }
+    S->>B: Broadcast "undo_action"
+    Note over B: B & C remove User A's stroke and redraw
+    end
 ```
 
 ---
@@ -117,14 +122,22 @@ As part of the ADSA project requirements, we expose the health and metrics of ou
 **Where it gets data from:**
 The dashboard relies on both local state (React) and a WebSocket stream from the Node.js server.
 
-```text
-[ Node.js / Express Server ]                   [ React DSA Dashboard ]
-                                                          |
-  1. Server sets interval (e.g. 500ms)                    |
-  2. Measures EventQueue.size()     --------(Socket)----->| 3. Listens for "dsa_metrics"
-  3. Measures total connected peers                       | 4. React setState updates UI
-                                                          |
-  (Frontend Only Data)                                    |
-  5. Local useHistory Hook checks   --------------------->| 6. Shows Undo Stack Depth
-     UndoStack.length                                     |
+```mermaid
+graph TD
+    subgraph ServerNode ["Node.js Server"]
+        Q[EventQueue (FIFO)]
+        MetricLoop((setInterval 500ms))
+        
+        Q -.->|queue.length| MetricLoop
+        MetricLoop -->|emit "dsa_metrics"| Socket
+    end
+
+    subgraph ClientReact ["React Frontend"]
+        Socket -->|listen "dsa_metrics"| Dashboard[DSA Dashboard]
+        
+        U[UndoStack Array] -.->|length| Dashboard
+    end
+
+    style Dashboard fill:#4f46e5,stroke:#c7d2fe,stroke-width:2px,color:#fff
+    style Q fill:#1f2937,stroke:#3b82f6,color:#fff
 ```
