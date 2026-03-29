@@ -15,7 +15,7 @@ The Online Collaborative Whiteboard allows multiple users to draw, annotate, and
 | Member | Details | Role | Responsibilities |
 |--------|---------|------|-----------------|
 | **Member 1** | Mythri (23311a04l8, ECE)<br> GitHub: [@mythri105](https://github.com/mythri105) | Backend Developer | Node.js server, Socket.io event system, API routes, session management |
-| **Member 2** | Sanjana (23311a04k4, ECE) | Frontend Developer | React components, HTML5 Canvas drawing logic, UI/UX design |
+| **Member 2** | Sanjana (23311a04k4, ECE)<br> GitHub: [@sanjanan0507](https://github.com/sanjanan0507) | Frontend Developer | React components, HTML5 Canvas drawing logic, UI/UX design |
 | **Member 3** | Prem Sai K (23311A04L9, ECE)<br> GitHub: [@prem22k](https://github.com/prem22k) | Integration Engineer | Connecting frontend ↔ backend, end-to-end testing, deployment |
 
 ---
@@ -243,4 +243,4 @@ This project is developed for academic purposes as part of a university ADSA cou
 
 ---
 
-*Built with ❤️ for learning — Advanced Data Structures and Algorithm (ADSA), [University Name], 2026*
+*Built with ❤️ for learning — Advanced Data Structures and Algorithm (ADSA), Sreenidhi Institute Of Science and Technology, 2026*
