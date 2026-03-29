@@ -2,10 +2,10 @@
   "name": "whiteboard-backend",
   "version": "1.0.0",
   "description": "Backend for Online Collaborative Whiteboard project.",
-  "main": "server.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node src/index.js",
+    "dev": "node src/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
