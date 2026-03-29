@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
+const EventQueue = require('./eventQueue.js');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,6 +12,14 @@ const io = new Server(server, {
         origin: "http://localhost:3000",
         methods: ["GET", "POST"]
     }
+});
+
+// Create a single global queue instance
+const queue = new EventQueue();
+
+// GET /status REST endpoint returning queue size
+app.get('/status', (req, res) => {
+    res.json({ queueSize: queue.size() });
 });
 
 io.on('connection', (socket) => {
