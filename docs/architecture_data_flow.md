@@ -13,8 +13,8 @@ When **User A** presses their mouse and moves it across the canvas, a sequence o
 
 ```mermaid
 sequenceDiagram
-    participant A as User A's Browser
-    participant S as Socket.io Server (Node.js)
+    participant A as User A
+    participant S as Node Server
 
     Note over A: 1. Listen for onMouseMove
     A->>A: 2. Capture (x, y) coordinates
@@ -36,7 +36,7 @@ The Node.js backend receives concurrent drawing events from all users. To guaran
 sequenceDiagram
     participant Clients as Active Users
     participant S as Server
-    participant Q as EventQueue (FIFO)
+    participant Q as EventQueue
 
     Clients->>S: Emit "draw_stroke"
     S->>Q: Enqueue Event (Rear)
@@ -62,9 +62,9 @@ Meanwhile, **User B** sits in the same room. Their client listens for incoming s
 
 ```mermaid
 sequenceDiagram
-    participant S as Socket.io Server
-    participant B as User B's Browser
-    participant C as HTML5 Canvas
+    participant S as Socket Server
+    participant B as User B
+    participant C as Canvas
 
     S->>B: Broadcast "receive_stroke"
     B->>B: 1. Extract coordinates & style
@@ -86,10 +86,10 @@ What happens when **User A** makes a mistake and clicks `Undo`? We rely on our *
 ```mermaid
 sequenceDiagram
     participant A as User A
-    participant Stack as UndoStack (LIFO)
-    participant C as User A Canvas
-    participant S as Node.js Server
-    participant B as User B & C
+    participant Stack as UndoStack
+    participant C as Local Canvas
+    participant S as Node Server
+    participant B as Other Users
 
     A->>A: Clicks "Undo"
     A->>Stack: Check isEmpty()
@@ -125,17 +125,17 @@ The dashboard relies on both local state (React) and a WebSocket stream from the
 ```mermaid
 graph TD
     subgraph ServerNode ["Node.js Server"]
-        Q[EventQueue (FIFO)]
-        MetricLoop((setInterval 500ms))
+        Q["EventQueue (FIFO)"]
+        MetricLoop(("setInterval 500ms"))
         
-        Q -.->|queue.length| MetricLoop
-        MetricLoop -->|emit "dsa_metrics"| Socket
+        Q -.->|queue length| MetricLoop
+        MetricLoop -->|emit dsa_metrics| Socket
     end
 
     subgraph ClientReact ["React Frontend"]
-        Socket -->|listen "dsa_metrics"| Dashboard[DSA Dashboard]
+        Socket -->|listen dsa_metrics| Dashboard["DSA Dashboard"]
         
-        U[UndoStack Array] -.->|length| Dashboard
+        U["UndoStack Array"] -.->|stack length| Dashboard
     end
 
     style Dashboard fill:#4f46e5,stroke:#c7d2fe,stroke-width:2px,color:#fff
