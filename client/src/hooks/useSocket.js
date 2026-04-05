@@ -21,7 +21,15 @@ export default function useSocket(canvasRef) {
       canvasRef.current?.triggerRemoteClear();
     });
 
+    // Keep-alive: ping server every 10 minutes to prevent Render free tier spin-down
+    const keepAlive = setInterval(() => {
+      if (socketInstance.connected) {
+        socketInstance.emit('ping');
+      }
+    }, 10 * 60 * 1000);
+
     return () => {
+      clearInterval(keepAlive);
       socketInstance.off('draw');
       socketInstance.off('undo');
       socketInstance.off('clear');
