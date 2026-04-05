@@ -4,7 +4,26 @@ import ActivityLog from './components/ActivityLog';
 import useSocket from './hooks/useSocket';
 import useStatusPolling from './hooks/useStatusPolling';
 
-function App() {
+const styles = {
+  container: {
+    padding: '20px',
+    fontFamily: 'sans-serif',
+    minWidth: 0,
+    overflow: 'hidden',
+  },
+  title: {
+    fontSize: 'clamp(18px, 4vw, 28px)',
+    marginBottom: '10px',
+  },
+  body: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    gap: '20px',
+  },
+};
+
+export default function App() {
   const canvasRef = useRef(null);
   const socket = useSocket(canvasRef);
   const queueSize = useStatusPolling();
@@ -28,9 +47,9 @@ function App() {
   };
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-      <h1>Collaborative Whiteboard</h1>
-      <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+    <div style={styles.container}>
+      <h1 style={styles.title}>Collaborative Whiteboard</h1>
+      <div style={styles.body}>
         <Canvas
           ref={canvasRef}
           socket={socket}
@@ -49,5 +68,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
