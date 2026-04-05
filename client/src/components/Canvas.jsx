@@ -6,53 +6,6 @@ const BASE_WIDTH = 1000;
 const BASE_HEIGHT = 600;
 const ASPECT = BASE_HEIGHT / BASE_WIDTH;
 
-const styles = {
-  container: {
-    fontFamily: 'sans-serif',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    minWidth: 0,
-    flex: '1 1 auto',
-    maxWidth: BASE_WIDTH,
-    width: '100%',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: '8px',
-    fontSize: '13px',
-    color: '#333',
-    flexWrap: 'wrap',
-    gap: '4px',
-  },
-  canvas: {
-    border: '1px solid #000',
-    cursor: 'crosshair',
-    backgroundColor: '#fff',
-    width: '100%',
-    touchAction: 'none',
-  },
-  controls: {
-    marginTop: '10px',
-    display: 'flex',
-    width: '100%',
-    gap: '10px',
-  },
-  button: {
-    padding: '10px 16px',
-    fontFamily: 'sans-serif',
-    fontSize: '15px',
-    border: '1px solid #666',
-    backgroundColor: '#eee',
-    cursor: 'pointer',
-    borderRadius: '6px',
-    flex: 1,
-    minHeight: '44px',
-  },
-};
-
 /** Convert a touch/mouse event to canvas-relative coordinates using cached rect. */
 const getCanvasCoords = (canvas, e, cachedRect) => {
   let rect = cachedRect;
@@ -111,7 +64,6 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     const displayHeight = Math.round(displayWidth * ASPECT);
     canvas.style.height = displayHeight + 'px';
     setCanvasHeight(displayHeight + 'px');
-    // Invalidate cached bounding rect so next getCanvasCoords recalculates
     cachedRect.current = null;
   }, []);
 
@@ -179,7 +131,6 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
 
   const startDrawing = (e) => {
     e.preventDefault();
-    // Cache bounding rect at stroke start — valid until next resize
     cachedRect.current = canvasRef.current.getBoundingClientRect();
     const { x, y } = getCanvasCoords(canvasRef.current, e, cachedRect.current);
     contextRef.current.beginPath();
@@ -197,7 +148,6 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     const lastX = contextRef.current.lastX || x;
     const lastY = contextRef.current.lastY || y;
 
-    // Always draw locally at full speed for smooth visual feedback
     drawLineSegment(lastX, lastY, x, y, '#3b82f6', 4);
 
     const strokeData = {
@@ -216,7 +166,6 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     // Throttle socket emissions to ~30fps to reduce bandwidth and server load
     const now = Date.now();
     if (socket && now - lastEmitTime.current >= EMIT_INTERVAL) {
-      // Bridge from last emitted position to current to avoid gaps for remote users
       const emitStartX = lastEmittedPos.current.x ?? lastX;
       const emitStartY = lastEmittedPos.current.y ?? lastY;
 
@@ -278,6 +227,15 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     if (addLogEntry) addLogEntry({ user: username || 'Anonymous', action: 'performed undo' });
   };
 
+  const handleClear = () => {
+    allStrokes.current = [];
+    undoStack.current = new UndoStack();
+    onStackSizeChange(0);
+    redrawAllStrokes();
+    if (socket) socket.emit('clear');
+    if (addLogEntry) addLogEntry({ user: username || 'Anonymous', action: 'cleared the board' });
+  };
+
   // Listen for Ctrl+Z globally
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -291,14 +249,15 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
   });
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <div>Queue: {queueSize}</div>
-        <div>Undo Stack: {stackSize}</div>
+    <div className="canvas-wrap">
+      <div className="canvas-header">
+        <span>Queue: {queueSize}</span>
+        <span>Stack: {stackSize}</span>
       </div>
 
       <canvas
-        style={{ ...styles.canvas, height: canvasHeight }}
+        className="drawing-canvas"
+        style={{ height: canvasHeight }}
         ref={canvasRef}
         onMouseDown={startDrawing}
         onMouseMove={draw}
@@ -310,24 +269,17 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
         onTouchCancel={finishDrawing}
       />
 
-      <div style={styles.controls}>
+      <div className="canvas-controls">
         <button
-          style={styles.button}
+          className="btn btn-undo"
           onClick={handleUndo}
           disabled={stackSize === 0}
         >
           Undo
         </button>
         <button
-          style={styles.button}
-          onClick={() => {
-            allStrokes.current = [];
-            undoStack.current = new UndoStack();
-            onStackSizeChange(0);
-            redrawAllStrokes();
-            if (socket) socket.emit('clear');
-            if (addLogEntry) addLogEntry({ user: username || 'Anonymous', action: 'cleared the board' });
-          }}
+          className="btn btn-clear"
+          onClick={handleClear}
         >
           Clear Board
         </button>

@@ -4,25 +4,6 @@ import ActivityLog from './components/ActivityLog';
 import useSocket from './hooks/useSocket';
 import useStatusPolling from './hooks/useStatusPolling';
 
-const styles = {
-  container: {
-    padding: '20px',
-    fontFamily: 'sans-serif',
-    minWidth: 0,
-    overflow: 'hidden',
-  },
-  title: {
-    fontSize: 'clamp(18px, 4vw, 28px)',
-    marginBottom: '10px',
-  },
-  body: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    alignItems: 'flex-start',
-    gap: '20px',
-  },
-};
-
 export default function App() {
   const canvasRef = useRef(null);
   const socket = useSocket(canvasRef);
@@ -47,9 +28,9 @@ export default function App() {
   };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Collaborative Whiteboard</h1>
-      <div style={styles.body}>
+    <div className="app">
+      <h1>Collaborative Whiteboard</h1>
+      <div className="app-body">
         <Canvas
           ref={canvasRef}
           socket={socket}
