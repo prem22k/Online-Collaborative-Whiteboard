@@ -1,168 +1,145 @@
-# 🖊️ Online Collaborative Whiteboard
+# Online Collaborative Whiteboard
 
 > A real-time, multi-user collaborative whiteboard built as a university **Advanced Data Structures and Algorithm (ADSA)** course project.
 
 ---
 
-## 📖 Project Description
+## Project Description
 
-The Online Collaborative Whiteboard allows multiple users to draw, annotate, and collaborate on a shared canvas in real time. Built on top of the **HTML5 Canvas API**, the application leverages **WebSockets (Socket.io)** for low-latency event broadcasting and integrates core DSA concepts — such as **Queues** for event ordering and **Stacks** for undo/redo operations — to ensure a smooth and predictable user experience.
+The Online Collaborative Whiteboard allows multiple users to draw on a shared canvas in real time. Built on the **HTML5 Canvas API**, the application uses **WebSockets (Socket.io)** for low-latency event broadcasting and integrates core DSA concepts:
+
+- **Queue (FIFO)** — server-side event ordering for consistent stroke synchronization
+- **Stack (LIFO)** — client-side undo/redo for drawing operations
+
+A live **Queue/Stack dashboard** is rendered on the UI so you can observe both data structures in action. The canvas is **mobile-responsive** — supports touch drawing on phones and tablets with adaptive layout.
 
 ---
 
-## 👥 Team Members & Roles
+## Live Deployment
+
+| Service | Platform | URL |
+|---------|----------|-----|
+| Frontend | Vercel | _your-vercel-app-url_ |
+| Backend | Render | _your-render-app-url_ |
+
+> Open the frontend URL in two browser tabs to simulate multi-user collaboration.
+
+---
+
+## Team Members & Roles
 
 | Member | Details | Role | Responsibilities |
 |--------|---------|------|-----------------|
-| **Member 1** | Mythri (23311a04l8, ECE)<br> GitHub: [@mythri105](https://github.com/mythri105) | Backend Developer | Node.js server, Socket.io event system, API routes, session management |
-| **Member 2** | Sanjana (23311a04k4, ECE)<br> GitHub: [@sanjanan0507](https://github.com/sanjanan0507) | Frontend Developer | React components, HTML5 Canvas drawing logic, UI/UX design |
-| **Member 3** | Prem Sai K (23311A04L9, ECE)<br> GitHub: [@prem22k](https://github.com/prem22k) | Integration Engineer | Connecting frontend ↔ backend, end-to-end testing, deployment |
+| **Member 1** | Mythri (23311a04l8, ECE)<br> GitHub: [@mythri105](https://github.com/mythri105) | Backend Developer | Node.js server, Socket.io event system, EventQueue implementation |
+| **Member 2** | Sanjana (23311a04k4, ECE)<br> GitHub: [@sanjanan0507](https://github.com/sanjanan0507) | Frontend Developer | React components, HTML5 Canvas drawing logic, UI/UX |
+| **Member 3** | Prem Sai K (23311A04L9, ECE)<br> GitHub: [@prem22k](https://github.com/prem22k) | Integration Engineer | Frontend-backend integration, end-to-end testing, deployment |
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 | Technology | Purpose |
 |-----------|---------|
 | React.js | Component-based UI framework |
+| Vite | Build tool and dev server |
 | HTML5 Canvas API | Core drawing surface |
-| Socket.io Client | Real-time event subscription |
-| CSS3 | Styling and layout |
+| Socket.io Client | Real-time WebSocket communication |
 
 ### Backend
 | Technology | Purpose |
 |-----------|---------|
 | Node.js | JavaScript runtime |
-| Express.js | HTTP server and REST API |
+| Express.js | HTTP server and REST endpoint (`/status`) |
 | Socket.io | Bi-directional WebSocket communication |
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Online-Collaborative-Whiteboard/
 │
-├── client/                          # React Frontend
-│   ├── public/
-│   │   └── index.html               # HTML entry point
+├── client/                          # React Frontend (Vite)
+│   ├── index.html                   # HTML entry point (Vite root)
+│   ├── vite.config.js               # Vite configuration + dev proxy
 │   ├── src/
-│   │   ├── components/              # Reusable UI components
-│   │   │   ├── Canvas.jsx           # Main drawing canvas component
-│   │   │   ├── Toolbar.jsx          # Drawing tools (pen, eraser, shapes)
-│   │   │   ├── ColorPicker.jsx      # Color selection panel
-│   │   │   └── UserPresence.jsx     # Active users indicator
-│   │   ├── context/
-│   │   │   └── WhiteboardContext.jsx # Global state (tool, color, history)
+│   │   ├── components/
+│   │   │   ├── Canvas.jsx           # Main drawing canvas with Undo stack
+│   │   │   └── ActivityLog.jsx      # Real-time activity log panel
 │   │   ├── hooks/
-│   │   │   ├── useCanvas.js         # Canvas drawing logic hook
-│   │   │   ├── useSocket.js         # Socket.io connection hook
-│   │   │   └── useHistory.js        # Undo/Redo Stack hook
-│   │   ├── pages/
-│   │   │   ├── Home.jsx             # Landing / room selection page
-│   │   │   └── Whiteboard.jsx       # Main whiteboard page
+│   │   │   ├── useSocket.js         # Socket.io connection + event listeners
+│   │   │   └── useStatusPolling.js  # Polls /status for live queue size
 │   │   ├── utils/
-│   │   │   ├── canvasHelpers.js     # Drawing math utilities
-│   │   │   └── eventQueue.js        # Client-side event Queue implementation
-│   │   ├── styles/
-│   │   │   └── index.css            # Global styles
-│   │   ├── App.jsx                  # Root component with routing
+│   │   │   ├── UndoStack.js         # Client-side Stack (LIFO) implementation
+│   │   │   └── constants.js         # Server URL from env with fallback
+│   │   ├── App.jsx                  # Root component
 │   │   └── main.jsx                 # React entry point
-│   ├── .env.example                 # Frontend environment variables template
 │   └── package.json
 │
 ├── server/                          # Node.js Backend
 │   ├── src/
-│   │   ├── controllers/
-│   │   │   └── roomController.js    # Room create/join/leave logic
-│   │   ├── events/
-│   │   │   ├── drawingEvents.js     # Socket drawing event handlers
-│   │   │   └── roomEvents.js        # Socket room lifecycle handlers
-│   │   ├── middleware/
-│   │   │   └── errorHandler.js      # Global error middleware
-│   │   ├── models/
-│   │   │   └── Room.js              # In-memory room model
-│   │   ├── routes/
-│   │   │   └── roomRoutes.js        # REST API routes (/api/rooms)
 │   │   ├── utils/
-│   │   │   ├── EventQueue.js        # Server-side Queue (FIFO event processing)
-│   │   │   └── UndoStack.js         # Server-side Stack (undo/redo per session)
+│   │   │   └── EventQueue.js        # Server-side Queue (FIFO) implementation
 │   │   └── index.js                 # Express + Socket.io server entry point
-│   ├── .env.example                 # Backend environment variables template
 │   └── package.json
 │
 ├── docs/                            # Documentation & assets
-│   ├── architecture.md              # System design diagrams
-│   └── api.md                       # REST + Socket event reference
+│   ├── data_structures_design.md    # DSA design docs with diagrams
+│   ├── architecture_data_flow.md    # System architecture and data flow
+│   └── qa_manual_testing_checklist.md
 │
+├── dsa.test.js                      # Unit tests for EventQueue and UndoStack
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## ⚙️ How to Run Locally
+## How to Run Locally
 
 ### Prerequisites
 - **Node.js** v18 or higher
 - **npm** v9 or higher
 - Git
 
----
-
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/<your-username>/Online-Collaborative-Whiteboard.git
+git clone https://github.com/prem22k/Online-Collaborative-Whiteboard.git
 cd Online-Collaborative-Whiteboard
 ```
-
----
 
 ### 2. Run the Backend (Server)
 
 ```bash
-# Navigate to the server directory
 cd server
-
-# Install dependencies
 npm install
 
-# Copy and configure environment variables
-cp .env.example .env
-# Edit .env and set PORT (default: 5000) and any required variables
+# Set environment variables
+export PORT=5000
+export CLIENT_URL=http://localhost:3000
 
-# Start the development server
 npm run dev
 ```
 
 > The backend will be running at **http://localhost:5000**
-
----
 
 ### 3. Run the Frontend (Client)
 
 Open a **new terminal tab/window**:
 
 ```bash
-# Navigate to the client directory
 cd client
-
-# Install dependencies
 npm install
 
-# Copy and configure environment variables
-cp .env.example .env
-# Set REACT_APP_SOCKET_URL=http://localhost:5000
+# Set the backend URL (optional — defaults to http://localhost:5000)
+export VITE_BACKEND_URL=http://localhost:5000
 
-# Start the React development server
-npm start
+npm run dev
 ```
 
 > The frontend will be running at **http://localhost:3000**
-
----
 
 ### 4. Open the App
 
@@ -170,77 +147,111 @@ Navigate to **http://localhost:3000** in two separate browser tabs to simulate m
 
 ---
 
-## 🧠 Core DSA Concepts Used
+## Core DSA Concepts Used
 
-### 📋 Queue — Event Handling
+### Queue — Server-Side Event Processing
 
-**Location:** `server/src/utils/EventQueue.js` and `client/src/utils/eventQueue.js`
+**Location:** `server/src/utils/EventQueue.js`
 
 **Why a Queue?**
-Drawing is an inherently sequential operation. When multiple users draw simultaneously, their events must be processed in the **exact order they were received** to maintain canvas consistency across all clients.
+When multiple users draw simultaneously, their stroke events arrive at the server asynchronously. A FIFO queue ensures events are broadcast in the **exact order received**, preventing race conditions and maintaining canvas consistency across all clients.
 
-- **Data Structure:** FIFO (First-In, First-Out) Queue
-- **Usage:** All incoming Socket.io drawing events are enqueued on the server before being broadcast. This prevents race conditions and ensures every client renders strokes in the same global order.
-- **Operations Used:** `enqueue()`, `dequeue()`, `isEmpty()`, `peek()`
+- **Data Structure:** FIFO Queue using an object with head/tail pointers (O(1) enqueue and dequeue)
+- **Usage:** All incoming `draw` Socket.io events are enqueued. A 16ms interval worker loop (approx 60fps) dequeues and broadcasts events one at a time.
+- **Operations Used:** `enqueue()`, `dequeue()`, `peek()`, `isEmpty()`, `size()`, `toArray()`
 
 ```
-User A draws stroke → [enqueue] → Queue: [A_stroke, B_stroke, C_stroke] → [dequeue one by one] → Broadcast
-User B draws stroke → [enqueue] ↗
-User C draws stroke → [enqueue] ↗
+User A draws → [enqueue] → Queue: [A_stroke, B_stroke] → [dequeue at ~60fps] → broadcast
+User B draws → [enqueue] ↗
 ```
+
+The live queue size is displayed in the UI dashboard and polled via `GET /status`.
 
 ---
 
-### 📚 Stack — Undo / Redo
+### Stack — Client-Side Undo
 
-**Location:** `server/src/utils/UndoStack.js` and `client/src/hooks/useHistory.js`
+**Location:** `client/src/utils/UndoStack.js` and `client/src/components/Canvas.jsx`
 
 **Why a Stack?**
-Undo/redo requires accessing the **most recent action first** — a classic Last-In, First-Out (LIFO) pattern.
+Undo requires accessing the **most recent action first** — a classic Last-In, First-Out (LIFO) pattern. Each completed stroke is pushed onto the stack. Pressing Ctrl+Z pops the top stroke ID and removes all its segments from the canvas.
 
-- **Data Structure:** Two Stacks — `undoStack` and `redoStack`
-- **Usage:** Every drawing action is pushed onto the `undoStack`. When the user presses Ctrl+Z, the top item is popped from `undoStack` and pushed onto `redoStack`. Ctrl+Y reverses this.
-- **Operations Used:** `push()`, `pop()`, `peek()`, `isEmpty()`
+- **Data Structure:** Stack backed by a native JavaScript array
+- **Usage:** On `mouseup`, the stroke ID is pushed onto the stack. Undo pops it, filters out matching segments, and redraws the canvas.
+- **Operations Used:** `push()`, `pop()`, `peek()`, `isEmpty()`, `size()`
 
 ```
-Action A → push(A) → undoStack: [A]
-Action B → push(B) → undoStack: [A, B]
-Ctrl+Z   → pop()   → undoStack: [A]   redoStack: [B]
-Ctrl+Y   → pop()   → undoStack: [A, B] redoStack: []
+Stroke A → push(A) → Stack: [A]
+Stroke B → push(B) → Stack: [A, B]
+Ctrl+Z   → pop()   → Stack: [A]   → removes B segments → redraw
 ```
+
+The live stack size is displayed in the UI dashboard.
 
 ---
 
-## 📅 Day-Wise Development Plan
+## Socket.io Events
+
+| Event | Direction | Description |
+|-------|-----------|-------------|
+| `draw` | Client → Server → Broadcast | Stroke segment data (strokeId, coordinates, color, width) |
+| `undo` | Client → Server → Broadcast | Undo request with target stroke ID |
+| `clear` | Client → Server → Broadcast | Clear entire canvas |
+| `activity` | Client → Server → Broadcast | User activity entry (user, action, timestamp) |
+
+---
+
+## REST API
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Health check — confirms server is running |
+| `/status` | GET | Returns `{ queueSize: <number> }` for the live dashboard |
+
+---
+
+## Mobile Responsiveness
+
+The whiteboard works on phones and tablets:
+
+- **Touch input** — `touchstart`, `touchmove`, `touchend` handlers with coordinate mapping for accurate drawing
+- **Responsive canvas** — scales to screen width while maintaining aspect ratio, resizes on orientation change
+- **Adaptive layout** — canvas and activity log stack vertically on narrow screens (`flex-wrap`)
+- **Touch optimizations** — `touch-action: none` prevents scroll interference, `overscroll-behavior: none` blocks pull-to-refresh, 44px minimum tap targets
+- **High-DPI support** — canvas internal resolution scales with `devicePixelRatio` for crisp rendering on Retina/HiDPI screens
+
+---
+
+## Day-Wise Development Plan
 
 | Day | Phase | Goals |
 |-----|-------|-------|
-| **Day 1** | 🎨 Design | Finalize UI wireframes, system architecture diagram, Socket.io event schema, REST API contract, and DSA module interfaces |
-| **Day 2** | ⚙️ Logic | Implement backend (Express server, Socket.io setup, EventQueue, UndoStack, room management), write unit-level tests for DSA utilities |
-| **Day 3** | 🖥️ UI | Build React frontend (Canvas component, Toolbar, hooks for socket + history), connect to live backend, validate real-time sync |
-| **Day 4** | 🧪 Testing | End-to-end multi-user testing, bug fixes, performance review, final README polish, and project demo preparation |
+| **Day 1** | Design | Finalize UI wireframes, system architecture, Socket.io event schema, DSA module interfaces |
+| **Day 2** | Logic | Implement backend (Express + Socket.io, EventQueue, worker loop), unit tests for DSA utilities |
+| **Day 3** | UI | Build React frontend (Canvas, ActivityLog, hooks for socket + status polling), connect to live backend |
+| **Day 4** | Testing | Multi-user testing, bug fixes, deployment to Vercel + Render, final README |
 
 ---
 
-## 📌 Environment Variables Reference
+## Environment Variables Reference
 
-### Backend (`server/.env`)
-```
-PORT=5000
-NODE_ENV=development
-```
+### Backend (`server`)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `5000` | Server port |
+| `CLIENT_URL` | `http://localhost:3000` | CORS origin for the frontend |
 
-### Frontend (`client/.env`)
-```
-REACT_APP_SOCKET_URL=http://localhost:5000
-```
+### Frontend (`client`)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_BACKEND_URL` | `http://localhost:5000` | Backend server URL |
 
 ---
 
-## 📄 License
+## License
 
 This project is developed for academic purposes as part of a university ADSA course.
 
 ---
 
-*Built with ❤️ for learning — Advanced Data Structures and Algorithm (ADSA), Sreenidhi Institute Of Science and Technology, 2026*
+*Built for learning — Advanced Data Structures and Algorithm (ADSA), Sreenidhi Institute Of Science and Technology, 2026*
