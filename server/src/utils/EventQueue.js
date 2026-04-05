@@ -18,13 +18,15 @@
  * a later stroke might overwrite an earlier one.
  */
 class EventQueue {
-    constructor() {
+    constructor(maxSize = 500) {
         // Use a plain object to store items for O(1) access (prevents need for array shift)
         this.items = {};
         // Head pointer marks the start of the queue (next item to dequeue)
         this.head = 0;
         // Tail pointer marks the end of the queue (next available index to enqueue)
         this.tail = 0;
+        // Maximum queue depth to prevent OOM on memory-constrained hosts (e.g. Render free tier 512MB)
+        this.maxSize = maxSize;
     }
 
     /**
@@ -37,8 +39,12 @@ class EventQueue {
      * @param {*} item - The drawing event or stroke data to add.
      */
     enqueue(item) {
+        if (this.size() >= this.maxSize) {
+            return false;
+        }
         this.items[this.tail] = item;
         this.tail++;
+        return true;
     }
 
     /**
