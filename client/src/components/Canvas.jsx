@@ -53,9 +53,12 @@ const styles = {
   },
 };
 
-/** Convert a touch/mouse event to canvas-relative coordinates. */
-const getCanvasCoords = (canvas, e) => {
-  const rect = canvas.getBoundingClientRect();
+/** Convert a touch/mouse event to canvas-relative coordinates using cached rect. */
+const getCanvasCoords = (canvas, e, cachedRect) => {
+  let rect = cachedRect;
+  if (!rect) {
+    rect = canvas.getBoundingClientRect();
+  }
   const scaleX = BASE_WIDTH / rect.width;
   const scaleY = BASE_HEIGHT / rect.height;
   let clientX, clientY;
@@ -89,6 +92,14 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
   const undoStack = useRef(new UndoStack());
   const allStrokes = useRef([]);
 
+  // Throttle socket emissions to ~30fps while drawing locally at full speed
+  const lastEmitTime = useRef(0);
+  const lastEmittedPos = useRef({ x: null, y: null });
+  const EMIT_INTERVAL = 33; // ~30fps throttle for network emissions
+
+  // Cached bounding rect — recalculated only on resize, not every mousemove
+  const cachedRect = useRef(null);
+
   // Responsive canvas height derived from current width
   const [canvasHeight, setCanvasHeight] = useState('auto');
 
@@ -100,6 +111,8 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     const displayHeight = Math.round(displayWidth * ASPECT);
     canvas.style.height = displayHeight + 'px';
     setCanvasHeight(displayHeight + 'px');
+    // Invalidate cached bounding rect so next getCanvasCoords recalculates
+    cachedRect.current = null;
   }, []);
 
   // Initialization
@@ -166,21 +179,25 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
 
   const startDrawing = (e) => {
     e.preventDefault();
-    const { x, y } = getCanvasCoords(canvasRef.current, e);
+    // Cache bounding rect at stroke start — valid until next resize
+    cachedRect.current = canvasRef.current.getBoundingClientRect();
+    const { x, y } = getCanvasCoords(canvasRef.current, e, cachedRect.current);
     contextRef.current.beginPath();
     contextRef.current.moveTo(x, y);
     isDrawing.current = true;
     currentStrokeId.current = Date.now() + Math.random().toString(36).substring(7);
+    lastEmittedPos.current = { x: null, y: null };
   };
 
   const draw = (e) => {
     if (!isDrawing.current) return;
     e.preventDefault();
-    const { x, y } = getCanvasCoords(canvasRef.current, e);
+    const { x, y } = getCanvasCoords(canvasRef.current, e, cachedRect.current);
 
     const lastX = contextRef.current.lastX || x;
     const lastY = contextRef.current.lastY || y;
 
+    // Always draw locally at full speed for smooth visual feedback
     drawLineSegment(lastX, lastY, x, y, '#3b82f6', 4);
 
     const strokeData = {
@@ -195,7 +212,22 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     };
 
     allStrokes.current.push(strokeData);
-    if (socket) socket.emit('draw', strokeData);
+
+    // Throttle socket emissions to ~30fps to reduce bandwidth and server load
+    const now = Date.now();
+    if (socket && now - lastEmitTime.current >= EMIT_INTERVAL) {
+      // Bridge from last emitted position to current to avoid gaps for remote users
+      const emitStartX = lastEmittedPos.current.x ?? lastX;
+      const emitStartY = lastEmittedPos.current.y ?? lastY;
+
+      socket.emit('draw', {
+        ...strokeData,
+        startX: emitStartX,
+        startY: emitStartY,
+      });
+      lastEmitTime.current = now;
+      lastEmittedPos.current = { x, y };
+    }
 
     contextRef.current.lastX = x;
     contextRef.current.lastY = y;
@@ -205,6 +237,21 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     if (e) e.preventDefault();
     contextRef.current.closePath();
     if (isDrawing.current) {
+      // Always emit the final segment so remote users see the complete stroke
+      if (socket && contextRef.current.lastX != null) {
+        const emitStartX = lastEmittedPos.current.x ?? contextRef.current.lastX;
+        const emitStartY = lastEmittedPos.current.y ?? contextRef.current.lastY;
+        socket.emit('draw', {
+          strokeId: currentStrokeId.current,
+          userId: socket.id,
+          startX: emitStartX,
+          startY: emitStartY,
+          endX: contextRef.current.lastX,
+          endY: contextRef.current.lastY,
+          color: '#3b82f6',
+          width: 4
+        });
+      }
       undoStack.current.push(currentStrokeId.current);
       onStackSizeChange(undoStack.current.size());
       if (addLogEntry) addLogEntry({ user: username || 'Anonymous', action: 'drew a stroke' });
@@ -212,6 +259,7 @@ const Canvas = forwardRef(({ socket, queueSize, stackSize, onStackSizeChange, us
     isDrawing.current = false;
     contextRef.current.lastX = null;
     contextRef.current.lastY = null;
+    cachedRect.current = null;
   };
 
   const handleUndo = () => {
