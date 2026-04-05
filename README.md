@@ -19,8 +19,8 @@ A live **Queue/Stack dashboard** is rendered on the UI so you can observe both d
 
 | Service | Platform | URL |
 |---------|----------|-----|
-| Frontend | Vercel | _your-vercel-app-url_ |
-| Backend | Render | _your-render-app-url_ |
+| Frontend | Vercel | https://online-collaborative-whiteboard-adsa.vercel.app/ |
+| Backend | Render | https://online-collaborative-whiteboard.onrender.com |
 
 > Open the frontend URL in two browser tabs to simulate multi-user collaboration.
 
@@ -30,9 +30,9 @@ A live **Queue/Stack dashboard** is rendered on the UI so you can observe both d
 
 | Member | Details | Role | Responsibilities |
 |--------|---------|------|-----------------|
-| **Member 1** | Mythri (23311a04l8, ECE)<br> GitHub: [@mythri105](https://github.com/mythri105) | Backend Developer | Node.js server, Socket.io event system, EventQueue implementation |
-| **Member 2** | Sanjana (23311a04k4, ECE)<br> GitHub: [@sanjanan0507](https://github.com/sanjanan0507) | Frontend Developer | React components, HTML5 Canvas drawing logic, UI/UX |
-| **Member 3** | Prem Sai K (23311A04L9, ECE)<br> GitHub: [@prem22k](https://github.com/prem22k) | Integration Engineer | Frontend-backend integration, end-to-end testing, deployment |
+| **Member 1** | Mythri (23311a04l8, ECE)<br> GitHub: [@mythri105](https://github.com/mythri105) | Backend Developer | EventQueue (FIFO) data structure, Express + Socket.io server setup, event handlers for draw/undo, 16ms worker loop, `GET /status` endpoint |
+| **Member 2** | Sanjana (23311a04k4, ECE)<br> GitHub: [@sanjanan0507](https://github.com/sanjanan0507) | Frontend Developer | UndoStack (LIFO) data structure, initial Canvas component with UndoStack integration |
+| **Member 3** | Prem Sai K (23311A04L9, ECE)<br> GitHub: [@prem22k](https://github.com/prem22k) | Lead Developer & Integrator | Project scaffolding, React hooks (useSocket, useStatusPolling), Canvas overhaul with segment-based drawing and remote sync, activity log, mobile responsiveness + touch support, performance optimizations (30fps throttle, batch dequeue, keep-alive ping), OOM prevention, CSS refactoring, environment variable config, unit tests, all documentation, Vercel + Render deployment |
 
 ---
 
