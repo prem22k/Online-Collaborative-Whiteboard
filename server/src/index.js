@@ -34,13 +34,16 @@ io.on('connection', (socket) => {
     socket.on('draw', (data) => {
         /**
          * Decoupling Receiving from Broadcasting
-         * By enqueuing the event instead of immediately broadcasting it within this listener, 
+         * By enqueuing the event instead of immediately broadcasting it within this listener,
          * we decouple the incoming network interface from the outbound broadcasting logic.
-         * This separation of concerns allows the server to absorb sudden bursts of network 
-         * traffic without blocking the Node.js event thread and gives us the chance to 
+         * This separation of concerns allows the server to absorb sudden bursts of network
+         * traffic without blocking the Node.js event thread and gives us the chance to
          * throttle or process events at a controlled rate before sending them out.
          */
-        queue.enqueue({ socket, data });
+        const enqueued = queue.enqueue({ socket, data });
+        if (!enqueued) {
+            console.warn(`Queue full (${queue.maxSize}), dropping draw event from ${socket.id}`);
+        }
     });
 
     // On incoming 'undo' socket event: broadcast immediately to all other clients
@@ -62,6 +65,11 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`Client disconnected: ${socket.id}`);
     });
+
+    // Keep-alive: clients ping every 10min to prevent Render free tier spin-down
+    socket.on('ping', () => {
+        socket.emit('pong');
+    });
 });
 
 /**
@@ -81,14 +89,20 @@ io.on('connection', (socket) => {
  * mitigating "event storms" where many users drawing at once could stall the server.
  */
 setInterval(() => {
-    if (!queue.isEmpty()) {
+    // Batch process up to 50 events per tick instead of 1,
+    // preventing queue backlog when multiple users draw simultaneously
+    const BATCH_SIZE = 50;
+    let processed = 0;
+
+    while (!queue.isEmpty() && processed < BATCH_SIZE) {
         const item = queue.dequeue();
-        
+
         // Ensure the item has a socket context to broadcast from
         if (item && item.socket) {
             // Dequeue one event and broadcast it via socket to all other clients
             item.socket.broadcast.emit('draw', item.data);
         }
+        processed++;
     }
 }, 16);
 
