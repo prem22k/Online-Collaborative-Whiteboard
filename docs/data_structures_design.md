@@ -17,19 +17,18 @@ In a real-time collaborative system, multiple users are sending drawing events (
 
 ```mermaid
 graph LR
-    subgraph Incoming ["Concurrent Client Actions"]
-        C1(Client User A)
-        C2(Client User B)
-        C3(Client User C)
+    subgraph Incoming [Concurrent Client Actions]
+        C1[Client User A]
+        C2[Client User B]
+        C3[Client User C]
     end
 
-    subgraph EventQueue ["EventQueue (FIFO) Node.js"]
-        direction LR
-        Rear[Rear] --> E3[Event C<br/>Just Arrived] --> E2[Event B] --> E1[Event A<br/>Oldest] --> Front[Front]
+    subgraph EventQueue [EventQueue FIFO - Node.js]
+        Rear[Rear] --> E3[Event C Just Arrived] --> E2[Event B] --> E1[Event A Oldest] --> Front[Front]
     end
 
-    Incoming -->|Socket draw| Rear
-    Front -->|Dequeue and Broadcast| WebSockets((WebSockets))
+    Incoming -->|socket draw| Rear
+    Front -->|dequeue and broadcast| WebSockets((WebSockets))
     WebSockets -->|draw| C1
     WebSockets -->|draw| C2
     WebSockets -->|draw| C3
@@ -74,18 +73,17 @@ When a user presses "Undo" (`Ctrl+Z` or the Undo button), they expect to erase t
 
 ```mermaid
 graph BT
-    subgraph ClientCanvas ["User Screen"]
-        DrawAction("New Draw Action<br/>(mouseup / touchend)")
-        UndoAction("Undo Button / Ctrl+Z")
+    subgraph ClientCanvas [User Screen]
+        DrawAction[New Draw Action - mouseup or touchend]
+        UndoAction[Undo Button or Ctrl+Z]
     end
 
-    subgraph UndoStack ["UndoStack (LIFO)"]
-        direction BT
-        Bottom["(Bottom Level)"] --> S1[Stroke 1<br/>Oldest]
+    subgraph UndoStack [UndoStack LIFO]
+        Bottom[Bottom Level] --> S1[Stroke 1 Oldest]
         S1 --> S2[Stroke 2]
         S2 --> S3[Stroke 3]
-        S3 --> S4[Stroke 4<br/>Top Element]
-        S4 --> Top["(Top Level)"]
+        S3 --> S4[Stroke 4 Top Element]
+        S4 --> Top[Top Level]
     end
 
     DrawAction -->|Push stroke ID| Top
