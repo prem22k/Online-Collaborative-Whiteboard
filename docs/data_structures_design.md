@@ -28,11 +28,11 @@ graph LR
         Rear[Rear] --> E3[Event C<br/>Just Arrived] --> E2[Event B] --> E1[Event A<br/>Oldest] --> Front[Front]
     end
 
-    Incoming -->|Socket "draw"| Rear
-    Front -->|Dequeue & Broadcast| WebSockets((WebSockets))
-    WebSockets -->|"draw"| C1
-    WebSockets -->|"draw"| C2
-    WebSockets -->|"draw"| C3
+    Incoming -->|Socket draw| Rear
+    Front -->|Dequeue and Broadcast| WebSockets((WebSockets))
+    WebSockets -->|draw| C1
+    WebSockets -->|draw| C2
+    WebSockets -->|draw| C3
 
     style EventQueue fill:#1f2937,stroke:#3b82f6,stroke-width:2px,color:#fff
     style Rear fill:#374151,stroke:#6b7280,color:#fff,stroke-dasharray: 5 5
